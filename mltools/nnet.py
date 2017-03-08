@@ -53,12 +53,12 @@ class nnetClassify(classifier):
 
 
     def __repr__(self):
-        to_return = 'Multi-layer perceptron (neural network) classifier\nLayers [{}]'.format(self.get_layers())
+        to_return = 'Multi-layer perceptron (neural network) classifier\nLayers [{}]'.format(self.layers)
         return to_return
 
 
     def __str__(self):
-        to_return = 'Multi-layer perceptron (neural network) classifier\nLayers [{}]'.format(self.get_layers())
+        to_return = 'Multi-layer perceptron (neural network) classifier\nLayers [{}]'.format(self.layers)
         return to_return
 
     def nLayers(self):
@@ -111,7 +111,7 @@ class nnetClassify(classifier):
         return Z
 
 
-    def train(self, X, Y, init='zeros', stepsize=.01, stopTol=1e-4, stopIter=5000):
+    def train(self, X, Y, init='zeros', initStep=.1, stepConstant=100, stopTol=1e-4, stopIter=5000):
         """Train the neural network.
 
         Args:
@@ -123,8 +123,11 @@ class nnetClassify(classifier):
               where W1 is Nh1 x Nin, etc.
           init : str 
               'none', 'zeros', or 'random'.  inits the neural net weights.
-          stepsize : scalar
-              The stepsize for gradient descent (decreases as 1 / iter).
+          initStep, stepConstant  : scalars
+              Stepsize decreases with each step:  initStep/(1+nSteps/stepConstant)
+              If processing stops after T steps, to resume, set
+                initStep <- initStep * (stepConstant/stepConstant+T); 
+                stepConstant <- stepConstant + T
           stopTol : scalar 
               Tolerance for stopping criterion.
           stopIter : int 
@@ -138,6 +141,7 @@ class nnetClassify(classifier):
 
         self.classes = self.classes if len(self.classes) else np.unique(Y)
 
+        #if self.wts[-1].shape[0] > 1 and self.wts[-1].shape[0] != Y.shape[1]:
         if len(self.classes) != self.wts[-1].shape[0]: # and (self.wts[-1].shape[0]!=1 or len(self.classes)!=2):
             raise ValueError('layers[-1] must equal the number of classes in Y, or 1 for binary Y')
 
@@ -149,35 +153,37 @@ class nnetClassify(classifier):
         Y_tr_k = to1ofK(Y,self.classes)             # convert Y to 1-of-K format
 
         # outer loop of stochastic gradient descent
-        it = 1                                      # iteration number
-        nextPrint = 1                               # next time to print info
+        it = 0                                      # iteration number
+        nextPrint = 2                               # next time to print info
         done = 0                                    # end of loop flag
         J01, Jsur = [],[]                           # misclassification rate & surrogate loss values
+        data_order = np.random.permutation(M);      # run through data in random order
 
         while not done:
-            step_i = float(stepsize) / it           # step size evolution; classic 1/t decrease
+            #step_i = float(stepsize) / it           # step size evolution; classic 1/t decrease
             
             # stochastic gradient update (one pass)
-            for j in range(M):
+            for j in data_order:
+                step, it = float(initStep)/(1+it/stepConstant), it+1
+
                 A,Z = self.__responses(twod(X[j,:]))  # compute all layers' responses, then backdrop
                 delta = (Z[L] - Y_tr_k[j,:]) * arr(self.dSig0(Z[L]))  # take derivative of output layer
-
                 for l in range(L - 1, -1, -1):
                     grad = delta.T.dot( Z[l] )      # compute gradient on current layer wts
                     delta = delta.dot(self.wts[l]) * arr(self.dSig(Z[l])) # propagate gradient down
                     delta = delta[:,1:]             # discard constant feature
-                    self.wts[l] -= step_i * grad    # take gradient step on current layer wts
+                    self.wts[l] -= step * grad      # take gradient step on current layer wts
 
-            J01.append(  self.err_k(X, Y_tr_k) )    # error rate (classification)
-            Jsur.append( self.mse_k(X, Y_tr_k) )    # surrogate (mse on output)
-
-            if it >= nextPrint:
-                print('it {} : Jsur = {}, J01 = {}'.format(it,Jsur[-1],J01[-1]))
-                nextPrint *= 2
+                if it >= nextPrint:
+                    J01.append(  self.err_k(X, Y_tr_k) )    # error rate (classification)
+                    Jsur.append( self.mse_k(X, Y_tr_k) )    # surrogate (mse on output)
+                    print('it {} : Jsur = {}, J01 = {}'.format(it,Jsur[-1],J01[-1]))
+                    nextPrint *= 2
+                    if (len(Jsur)>1 and (np.abs(Jsur[-1] - Jsur[-2]) < stopTol)) or it >= stopIter: break
 
             # check if finished
-            done = (it > 1) and (np.abs(Jsur[-1] - Jsur[-2]) < stopTol) or it >= stopIter
-            it += 1
+            done = (len(Jsur)>1 and (np.abs(Jsur[-1] - Jsur[-2]) < stopTol)) or it >= stopIter
+            #it += 1
 
 
 
