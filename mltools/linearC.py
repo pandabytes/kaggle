@@ -1,4 +1,5 @@
 import numpy as np
+import mltools as ml
 
 from .base import classifier
 from .base import regressor
@@ -140,6 +141,8 @@ class linearClassify(classifier):
     def lossLogisticNLL(self, X,Y, reg=0.0):
         M,N = X.shape
         P = self.predictSoft(X)
+        Y =  np.array([int(i) for i in Y])
+        
         J = - np.sum( np.log( P[range(M),Y[:]] ) )   # assumes Y=0...C-1
         Y = ml.to1ofK(Y,self.classes)
         DJ= NotImplemented ##- np.sum( P**Y

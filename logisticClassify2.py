@@ -118,12 +118,10 @@ class logisticClassify2(ml.classifier):
                 Jsur += ((alpha) * sum(self.theta**2))
 
                 gradient = (-YY[i] * XX[i]) + (sigma * XX[i])
-                # gradient += ((2 * alpha) * (sum(self.theta)))
                 gradient += ((2 * alpha) * (YY[i]*XX[i]) * (XX[i].dot(np.transpose(XX[i]) + alpha))**-1)
                 self.theta -= stepsize * gradient
 
             J01.append( self.err(X,Y) )  # evaluate the current error rate 
-            # Jsur += ((alpha) * sum(self.theta**2))
             Jsur /= M
             Jnll.append( Jsur )
 
