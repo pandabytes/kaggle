@@ -167,6 +167,7 @@ def fkitchensink(X, K, typ, W=None):
                                                         
     Z = np.zeros((N,K))
     
+    # return Z, W
     if typ == 'stump':                                  # decision stump w/ random threshold
         for i in range(K):
             Z[:,i] = X[:,W[0,i]] >= W[1,i]
